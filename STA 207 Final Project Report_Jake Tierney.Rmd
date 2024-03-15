@@ -1,0 +1,1021 @@
+---
+title: Determining the Effect of Class Size on First Grade Math Performance Using
+  Project STAR Data
+author: "Jake Tierney, 913235409"
+date: "3/18/2024"
+output:
+  html_document:
+    df_print: paged
+    number_sections: true
+  pdf_document: default
+subtitle: STA 207 Final Project, UC Davis Winter 2024
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+library(dplyr)
+library(gplots)
+library(MASS)
+library(car)
+library(olsrr)
+library(mice)
+library(lme4)
+library(knitr)
+```
+
+\
+
+# Abstract
+
+Project STAR was a longitudinal experiment carried out in Tennessee between 1985 and 1989 that randomly assigned students into one of three class types (small, regular, and regular + aide) in an attempt to determine if Class Size Reduction (CSR) lead to improved academic achievement between kindergarten and third grade. In our analysis of the data from this study, we aim to answer the research questions of whether or not class type has an effect on the average scaled math score for each first grade teacher, and if so, which class type is associated with the best math performance.
+
+We define a multiple linear regression model to impute math scores for 231 missing students, and then define a multidimensional additive ANOVA model consisting of school urbanicity, student free lunch status, school ID, and class type as the covariates. From this model, we observe a highly significant F Test for the main effect of class type on average math scores, as well as highly significant Tukey confidence intervals that indicate the average math performance among "small" classes is between 5.6 and 17.9 points higher than "regular" classes and between 3.7 and 16.4 points higher than "regular + aide" classes. These results provide a strong indication that being placed in a "small" class type causes higher math achievement among first grade students, even after adjusting for urbanicity, free lunch status, and school ID. Finally, model validity and sensitivity analysis is conducted and a discussion is held regarding the conclusions and policy implications of this project.
+
+\
+
+
+# Introduction
+
+Class Size Reduction (CSR) has been a key educational policy in the United States since the 1970's, with the ultimate goal of providing elementary school students across the country increased personal interaction with their instructors through smaller class sizes. As such, it is clear that determining the relationship between class size and academic performance carries outsize significance, from policymaking to social wellbeing and even cost benefits (Achilles 2012). In recent decades, rigorous analysis has been conducted regarding the effect of smaller class size on education outcomes, particularly for primary school students (roughly ages four to ten), with the meta-analysis conducted by Gene V. Glass and Mary Lee Smith (1979) paving the way for further research on the subject in the 1980's. Glass and Smith (1979) found that decreased class size was directly related to improved academic achievement across all grade levels, which was followed in 1985 by the most prominent CSR study conducted to date, Project STAR.
+
+Project STAR was a controlled experiment conducted in Tennessee from 1985 to 1989 which sought to further determine the relationship between class size and academic performance for students in kindergarten through third grade, with academic outcomes measured for some students all the way through the end of high school. Students were randomly assigned into one of three class types for each academic year that they qualified for the study—Small (13-17 students), Regular (22-25 students), and Regular with Aide (22-25 students). At the end of each school year students were given standardized tests known as the Stanford Achievement Tests (SATs) to assess their reading, math, and other academic abilities. It is the data from this project that we will be working with to answer our own research questions of interest, which can be defined as the following:
+
+* Are there any differences in the total scaled math SAT scores for first grade students across different class types?
+* If so, which class type is associated with the highest first grade math scaled scores?
+
+The impact of the answers to these questions is apparent; if a causal link between class size and education outcome for first graders can be clearly determined, this can and should shape the framework of early education policy in the United States for years to come. In order to sufficiently answer these questions, we will acquire the Project STAR dataset from the [Harvard dataverse](https://dataverse.harvard.edu/dataset.xhtml?persistentId=hdl:1902.1/10766), process and clean the data as needed so that it is formatted in a way that is conducive to our analysis, and finally run ANOVA procedures to determine the relationship between class size, other covariates like school ID, urbanicity, ethnicity, etc., and first grade scaled math scores. We begin with a detailed background on the Project STAR experiment and resulting data.
+
+\
+
+
+# Background 
+
+Funded by the Tennessee State Legislature as a means to determine the effect of class size on short- and long-term academic performance for elementary school students, Project STAR was a longitudinal experiment wherein a cohort of students were randomly assigned a class size for each of kindergarten through third grade between the years 1985 and 1989 (Achilles, 2012). Achievement tests and other metrics were measured in the spring of each school year to assess each student's academic ability until the end of the experiment in 1989, with additional achievement data being collected for some students through their high school graduation in 1998 (Finn et al., 2007). In total, 11,601 students across 79 Tennessee elementary schools participated in the experiment for at least one school year.
+
+Once the experiment was approved and funded, a consortium of researchers was established to design and conduct the Project STAR experiment. The Consortium consisted of members of the Tennessee State Department of Education, the State Board of Education, the State Superintendent's Association, and four Tennessee universities, and prior class size research was considered when designing Project STAR (Finn et al., 2007). Ultimately the Consortium developed the following experimental design:
+
+* All Tennessee schools with kindergarten through third grade classes were invited to participate for the 1985-86 school year, with no major changes to school processes aside from any required by the experiment. Schools had to have a large enough student body to create at least one class of each type (Small, Regular, Regular + Aide).
+
+* One cohort of students entering kindergarten in 1985 (or started school in first grade in 1986) were randomly assigned to one of three experimental treatments within each participating school: Small class size (13-17 students), Regular class size (22-25 students) and Regular class size with aide (22-25 students). The experiment followed these students from kindergarten through third grade.
+
+* Teachers within each participating school were also randomly assigned to each class type.
+
+* Once assigned to a class type, students would remain in the assigned class type for the duration of their participation in Project STAR (excluding a subset of students that were randomly switched from Regular to Regular + Aide or vice-versa at the end of kindergarten).
+
+* Students who moved from a non-STAR school into a STAR school during the experiment were randomly assigned to one of the class types, with the constraint that no small class could exceed 17 students.
+
+* Students moving between STAR schools were assigned to the same class type they were in previously.
+
+* Standardized tests and other metrics were measured in the spring of each school year.
+
+* After the Project STAR experimental phase ended in 1989 when the cohort of students finished third grade, researchers continued to collect data on these students in fourth grade through high school.
+
+Examining the structure of Project STAR, it is clear that the researchers who conducted the experiment were very rigorous in their design. First and foremost, the random assignment of both students and teachers to class levels was key in maintaining the causal relationship between the experimental treatment (class size) and educational outcomes (Achilles, 2012). This allows us to draw a direct cause-and-effect relationship between a student's class size and their academic success, something that was difficult to find at the time of Project STAR's completion. Another key success of Project STAR was the size and diversity of its sample. With such a large body of participating students and schools, as well as diversity across ethnic, socio-economic, and other demographic backgrounds, any results derived from Project STAR have very strong generalizability to the target population of primary school students in Tennessee. Designing the experiment to be longitudinal over the course of four years was also benefitial to widening the scope of any findings that came from the project, widening the target population from a single grade level to all of kindergarten through third grade.
+
+Similarly to scope and causality, the collection of achievement data for STAR students after the course of the experiment (from fourth grade through high school) allows us to not only analyze the long-term relationship between primary school class size and academic success, but also assume causality for that relationship as well. This is because, even though the achievement metrics measured after 1989 were not within the scope of the experiment itself, those students can still be categorized by the class size that they were randomly assigned between kindergarten and third grade. Finally, the researchers carrying out this study were meticulous in their selection and monitoring of the standardized tests that students took at the end of each school year, and they were also careful to follow standard confidentiality and human subjects research procedures to assure that no students were given a worse-than-normal education and that their personal information remained fully confidential (Achilles, 2012). Overall, for such a large scale longitudinal project, the researchers were very successful in designing an experiment that maintained causality and a wide scope of inference, controlled for many different potentially confounding variables, and allowed for the confidentiality and fair treatment of its human subjects.
+
+This does not mean that the design of Project STAR is infallible, however, as there are a handful of key caveats to consider when looking at the experimental design. First, while student mobility was accounted for in most cases by the experimental design, it was impossible to guard against it for every student in such a large sample. Many students moved out of Project STAR schools or were otherwise noncompliant by switching classes away from the class size treatment that they were assigned. While these cases are not abundantly common and would be close to impossible to prevent, it is worth noting in the context of the experimental design. Another potential shortcoming of the design that was out of the control of the researchers is that, despite the large and diverse sample and longitudinal nature of the project, the scope of the results are still somewhat limited due to the target population and timeframe of the experiment. Project STAR was very successfully designed in order to obtain results that could be applied to the target population of primary school students in Tennessee in the mid-to-late 1980's. However, applying any of these results to other states, other age groups, or other periods of time is not a statistically sound procedure, even if it may make intuitive sense that the results would apply elsewhere. Again, this is by no fault of the researchers helming Project STAR, but rather the nature of the interpretability of experiment results. Ultimately, Project STAR was the largest and most successful experiment of its kind at the time that it was carried out, and while there are some natural caveats to the study's structure, it was very rigorously designed so that statistical analyses of the resulting data would be valid.
+
+Analysis of the Project STAR experiment data has yielded many important findings in the field of early education research. Folger and Breda (1989) found that smaller class sizes did have a significant positive effect on academic performance for students in early grades (K-3) for both reading and math, and that this effect was present for schools of all urbanicities (rural, suburban, urban, and inner-city). Economist Alan B. Krueger (1999) came to the conclusion that class size had a stronger positive impact on minority and free lunch students than other student groups; in a cost-benefit analysis, he also concluded that the internal rate of return for reducing class size as described in Project STAR was around 6% (Kreuger, 2002). In an analysis of the long-term effects of smaller K-3 class sizes on Project STAR students, Finn, Gerber, and Boyd-Zaharias (2005) found that there was an association between small class sizes in primary school and high school graduation rates, with the effect being stronger for free lunch students. All of these findings paint a fairly clear picture that can help guide the analysis decisions for this project: based on the Project STAR data, a clear relationship has been found between class size in kindergarten through third grade and both short- and long-term academic achievement, with that relationship being more pronounced for economically disadvantaged and minority students.
+
+Keeping these results in mind, we will utilize the final dataset of 11,601 Project STAR students to answer our specific research question of whether or not class size has an effect on math test scores for first grade students only. Before beginning our analysis in earnest, we first summarize the initial analysis that was carried out for these research questions in previous weeks.
+
+\
+
+
+# Initial Analysis 
+
+Using Project STAR data within the `AER` package in R, an initial analysis was conducted using teacher as the observational unit. This involved aggregating the original student-level dataframe into a teacher-level dataframe, with the mean scaled math score across all students for each teacher as the response variable of interest. We then defined and fit an additive two-way ANOVA model with class type and unique school ID as the covariates, ultimately coming to the conclusion that class size did have a significant effect on average first grade math scaled scores after accounting for school. It was then shown using Tukey confidence intervals that the "small" class type was associated with significantly higher first grade math scores than both of the "regular" and "regular + aide" class types, and that math scores for the latter two class types did not differ significantly.
+
+While there were aspects of the initial analysis that were successful and the overall results should be considered valid, there were also some caveats to the model that we may be able to improve upon in our final analysis here. Some of the more successful aspects of the initial analysis include:
+
+* **Accounting for School ID:** This is important when looking at aggregated math scores, as there are confounding factors for each school that can contribute to students' math scores. This allowed us to get more robust results than if we had looked at class type alone.
+
+* **Using an Additive Model:** An additive model made the most sense for that analysis, since there is no reason to believe that the relationship of math scores between each class type would differ significantly across schools, and the interaction term is not significant when it is included in the model.
+
+Some of the caveats with the initial analysis model are described below:
+
+* **Missing Data:** There were a number of first grade students who were missing scaled math score data in the initial analysis report, leading to some classes/teachers that had missing values. Rather than just throwing these missing values out, we will investigate whether these missing values come from any specific demographic groups, create a linear regression model from the student-level Project STAR dataset, and use the predicted values from this model to impute scaled math scores for these students.
+
+* **Heterogeneity/Insufficient Covariates:** There is reason to believe that the treatment groups assessed in the simple additive model in the initial analysis report were heterogeneous with regards to a number of potentially important explanatory variables. Notably, teacher ethnicity, school urbanicity, and teacher experience/education level were not included in the analysis. To correct for this, we can assess which of these covariates, if any, should be added to our model to improve the robustness of the results.
+
+* **Mobility/Noncompliance:** While this was out of the control of the researchers, some students were nontheless noncompliant with the treatment class size that they were assigned. This was due to a few reasons, including moving to a non-STAR school, being put into a different class size at the request of parents/guardians, or the originally assigned class size being full when the student moved to another STAR school. While this is an important issue for the validity of any randomized experiment, there is reason to believe that the noncompliance in Project STAR was not common enough to drastically alter results, and so we opt to focus on alleviating the previous two caveats mentioned.
+
+The initial analysis provides us with a baseline model that, while valid in and of itself, can be improved with some of the methods that we have suggested here. Starting with the descriptive analysis, we will work through the steps to make these improvements and end up with a more robust final model for answering our research questions of interest.
+
+\
+
+
+# Descriptive analysis 
+
+## Exploratory Data Analysis
+
+To begin our analysis, we first examine the full Project STAR dataset obtained from the Harvard Dataverse. The data consist of 11,601 observations for 379 variables, with each row representing the Project STAR data for a given student. Of the 379 variables, many are not of direct interest for this project since they pertain to demographic and achievement data for school levels other than the first grade, including up to high school for some students.
+
+There are, however, a number of key variables that we will utilize for this project, centered around the first grade Project STAR participants. These variables are summarized in Table 1 below. The full codebook for each variable can be found in Table A1 in the appendix.
+
+\
+
+```{r, echo = FALSE, include = FALSE}
+# importing haven library package  
+library(haven)  
+  
+# Using read_sav() function to read the SPSS file 
+STAR = read_sav("STAR_Students.sav")
+
+# Subsetting dataset to only students and variables of interest
+STAR1 = STAR[STAR$FLAGSG1 == 1, c(1, 2, 3, 8, 27, 55:64, 68, 71)]
+
+variable_summary = data.frame(
+  Variable = paste("`", names(STAR1), "`"),
+  Type = c("Character", "Factor", "Factor", "Factor", "Factor", "Character", "Factor", "Character", "Factor", "Factor", "Factor", "Factor",
+           "Numeric", "Numeric", "Factor", "Numeric", "Numeric"),
+  Description = c("Unique Student ID", "Student Gender", "Student Ethnicity", "Flagging first grade STAR participation", "Class Type",
+                  "Unique School ID", "School Urbanicity", "Unique Teacher ID", "Teacher Gender", "Teacher Ethnicity",
+                  "Teacher Highest Degree Earned", "Teacher Career Ladder Level", "Teacher Years of Experience", "Exact Class Size",
+                  "Student Free Lunch Qualification", "Days Student Was Present in Class", "First Grade Scaled Math Score")
+)
+```
+```{r, echo = FALSE, fig.align = 'center'}
+kable(variable_summary, caption = "Table 1: STAR Variables of Interest", align = "c")
+```
+
+\
+
+Using these variables, we can subset the original Project STAR data to consist only of the students who participated in the study in first grade and only these variables of interest, which we will then use to aggregate first grade math scores on a teacher/class level in order to complete the analysis. To do this, we use `FLAGSG1` as our subsetting variable and create a new data frame titled `STAR1` that contains  the 17 variables summarized above for the 6,829 students who were included in the study in first grade. From this `STAR1` dataset, we can summarize the response variable of interest to get an idea of what its overall distribution looks like at the student level.
+
+\
+
+**Figure 1: Distribution of First Grade Scaled Math Scores**
+```{r, echo = FALSE, fig.width = 8, fig.height = 3, fig.align = 'center'}
+# Histogram of STAR1 math scores
+par(mar = c(5, 4, 1.5, 2))
+hist(STAR1$g1tmathss, main = "", xlab = "")
+mtext("First Grade Scaled Math Score", side = 1, line = 2)
+```
+```{r, echo = FALSE}
+# Defining the different components of the summary table
+n = length(STAR1$g1tmathss)
+math_min = round(as.numeric(summary(STAR1$g1tmathss)[1]), 1)
+math_q1 = round(as.numeric(summary(STAR1$g1tmathss)[2]), 1)
+math_med = round(as.numeric(summary(STAR1$g1tmathss)[3]), 1)
+math_mean = round(as.numeric(summary(STAR1$g1tmathss)[4]), 1)
+math_sd = round(sd(STAR1$g1tmathss, na.rm = T), 1)
+math_q3 = round(as.numeric(summary(STAR1$g1tmathss)[5]), 1)
+math_max = round(as.numeric(summary(STAR1$g1tmathss)[6]), 1)
+math_na = round(as.numeric(summary(STAR1$g1tmathss)[7]), 1)
+
+# Creating the summary table
+summary_table = data.frame(rbind(c(n, math_min, math_q1, math_med, math_mean, math_sd, math_q3, math_max, math_na)))
+names(summary_table) = c("n", "Min", "1st Q", "Median", "Mean", "SD", "3rd Q", "Max", "NAs")
+kable(summary_table, caption = "Table 2: Summary Statistics for `g1tmathss`", align = "c")
+```
+
+\
+
+From Figure 1 and Table 2 above, we can see that first grade scaled math scores appear to be roughly normally distributed, with a mean and median close to 530. There are, however, 231 missing `g1tmathss` values in this dataset. While this only represents roughly 3% of the observations in the `STAR1` dataframe, it is possible that there is a pattern with regards to which students have missing values. As mentioned in the previous section, we will investigate the characteristics of the students with missing data in comparison to those with full data in order to determine if these missing values should be imputed or if they can be excluded as fully random.
+
+To do this, we will create separate subsets of the `STAR1` data containing students with missing `g1tmathss` values and non-missing `g1tmathss` values, respectively, and compare these groups based on some of their demographic information. Namely, we will be looking at the distribution of variables like class type, student gender, student ethnicity, school urbanicity, free lunch status, and mean number of days present in class across the missing and non-missing groups, since these variables may indicate whether the students with missing values are likely to have different `g1tmathss` scores than those without missing values.
+
+\
+
+**Figure 2: Comparison of Demographic Variables Between Student Groups**
+```{r, echo = FALSE, fig.width = 10, fig.height = 5, fig.align = "center"}
+# Creating a subset of students who do not have missing g1 math scores
+math_full = STAR1[is.na(STAR1$g1tmathss) == FALSE, ]
+
+# Creating a subset of students who have missing g1 math scores
+missing = STAR1[is.na(STAR1$g1tmathss) == TRUE, ]
+
+# Creating datasets for class type, gender, ethnicity, urbanicity, and average days present comparisons between groups
+class_type = cbind(c(prop.table(table(math_full$g1classtype)), rep(0, 11)), c(prop.table(table(missing$g1classtype)), rep(0, 11)))
+gender = cbind(c(0, 0, 0, prop.table(table(math_full$gender)), rep(0, 9)), c(0, 0, 0, prop.table(table(missing$gender)), rep(0, 9)))
+ethnicity = cbind(c(rep(0, 5), prop.table(table(math_full$race))[1], sum(prop.table(table(math_full$race))[2:6]), rep(0, 7)),
+                  c(rep(0, 5), prop.table(table(missing$race))[1], sum(prop.table(table(missing$race))[2:6], na.rm = T), rep(0, 7)))
+urbanicity = cbind(c(rep(0, 7), prop.table(table(math_full$g1surban)), rep(0, 3)), c(rep(0, 7), prop.table(table(missing$g1surban)), rep(0, 3)))
+lunch = cbind(c(rep(0, 11), prop.table(table(math_full$g1freelunch)), rep(0, 1)), c(rep(0, 11), prop.table(table(missing$g1freelunch)), rep(0, 1)))
+present = cbind(c(rep(0, 13), 1), c(rep(0, 13), mean(missing$g1present, na.rm = TRUE)/mean(math_full$g1present, na.rm = TRUE)))
+empty1 = rep(NA, 14)
+
+# Combining the data into a single data table
+final_comparison = cbind(class_type, empty1, gender, empty1, ethnicity, empty1, urbanicity, empty1, lunch, empty1, present)
+
+# Setting the plotting window
+par(mar = c(5, 4, 2.5, 2))
+
+# Creating the plot
+barplot_data = barplot(final_comparison, col = c("lightblue", "steelblue", "darkblue",
+                                  "darkred", "pink",
+                                  "lavender", "purple",
+                                  "darkgreen", "forestgreen", "limegreen", "lightgreen",
+                                  "orange", "coral",
+                                  "lightgrey"),
+        ylab = "Proportion", xlab = "", main = "",
+        names.arg = rep(NA, ncol(final_comparison)))
+
+# Manually setting the X axis at the top of the chart
+axis(3, at = c(0.7, 1.9, 3.1, 4.3, 5.5, 6.7, 7.9, 9.1, 10.3, 11.5, 12.7, 13.9, 15.1, 16.3, 17.5, 18.7, 19.9),
+     labels = c("Full", "Missing", NA, "Full", "Missing", NA, "Full", "Missing", NA, "Full", "Missing", NA, "Full", "Missing", NA, "Full", "Missing"), las = 1,
+     cex.axis = 0.8, tick = FALSE, line = 0.01)
+
+# Setting legends for each variable
+legend("bottomleft", inset = c(0.012, -0.3), legend = c("Small", "Regular", "Regular + Aide"), fill = c("lightblue", "steelblue", "darkblue"), 
+       title = "Class Type", bty = "n", cex = 0.8, xpd = TRUE)
+legend(x = 3.8, y = -0.02, legend = c("Male", "Female"), fill = c("darkred", "pink"), 
+       title = "Gender", bty = "n", cex = 0.8, xpd = TRUE)
+legend(x = 7.2, y = -0.02, legend = c("White", "Non-White"), fill = c("lavender", "purple"), 
+       title = "Ethnicity", bty = "n", cex = 0.8, xpd = TRUE)
+legend(x = 10.8, y = -0.02, legend = c("Inner-City", "Suburban", "Rural", "Urban"), fill = c("darkgreen", "forestgreen", "limegreen", "lightgreen"), 
+       title = "Urbanicity", bty = "n", cex = 0.8, xpd = TRUE)
+legend(x = 14, y = -0.02, legend = c("Free Lunch", "Non-Free Lunch"), fill = c("orange", "coral"), 
+       title = "Free Lunch Status", bty = "n", cex = 0.8, xpd = TRUE)
+text(x = 19.35, y = -0.062, "Days Present in Class", xpd = TRUE, cex = 0.8)
+
+# PLotting data labels
+text(x = 0.7, y = 0.14, "28.3%", cex = 0.8, col = "black")
+text(x = 0.7, y = 0.5, "38.0%", cex = 0.8, col = "black")
+text(x = 0.7, y = 0.85, "33.7%", cex = 0.8, col = "white")
+text(x = 1.9, y = 0.13, "25.1%", cex = 0.8, col = "black")
+text(x = 1.9, y = 0.4, "33.3%", cex = 0.8, col = "black")
+text(x = 1.9, y = 0.8, "41.6%", cex = 0.8, col = "white")
+text(x = 4.3, y = 0.3, "51.7%", cex = 0.8, col = "white")
+text(x = 4.3, y = 0.75, "48.3%", cex = 0.8, col = "black")
+text(x = 5.5, y = 0.35, "58.3%", cex = 0.8, col = "white")
+text(x = 5.5, y = 0.8, "41.7%", cex = 0.8, col = "black")
+text(x = 7.9, y = 0.35, "66.7%", cex = 0.8, col = "black")
+text(x = 7.9, y = 0.85, "33.3%", cex = 0.8, col = "black")
+text(x = 9.1, y = 0.33, "62.7%", cex = 0.8, col = "black")
+text(x = 9.1, y = 0.83, "37.3%", cex = 0.8, col = "black")
+text(x = 11.5, y = 0.1, "20.2%", cex = 0.8, col = "black")
+text(x = 11.5, y = 0.3, "23.4%", cex = 0.8, col = "black")
+text(x = 11.5, y = 0.7, "47.3%", cex = 0.8, col = "black")
+text(x = 11.5, y = 0.95, "9.1%", cex = 0.8, col = "black")
+text(x = 12.7, y = 0.11, "21.6%", cex = 0.8, col = "black")
+text(x = 12.7, y = 0.3, "16.9%", cex = 0.8, col = "black")
+text(x = 12.7, y = 0.65, "49.8%", cex = 0.8, col = "black")
+text(x = 12.7, y = 0.94, "11.7%", cex = 0.8, col = "black")
+text(x = 15.1, y = 0.25, "50.9%", cex = 0.8, col = "black")
+text(x = 15.1, y = 0.78, "49.1%", cex = 0.8, col = "black")
+text(x = 16.3, y = 0.38, "72.0%", cex = 0.8, col = "black")
+text(x = 16.3, y = 0.85, "28.0%", cex = 0.8, col = "black")
+text(x = 18.7, y = 0.93, round(mean(math_full$g1present, na.rm = TRUE), 1), cex = 0.8, col = "black")
+text(x = 19.9, y = 0.6, round(mean(missing$g1present, na.rm = TRUE), 1), cex = 0.8, col = "black")
+```
+
+\
+
+Figure 2 summarizes these distributions for each group; from this plot, we can clearly see that students with missing `g1tmathss` values are more likely to be in a Regular + Aide class type, be Male, be non-White, attend a non-Suburban school, qualify for free lunches, and attend class less frequently than the students with `g1tmathss` scores. All of these variables could potentially affect the `g1tmathss` scores for the students with missing data, so it would not be responsible to ignore these missing values. We will move forward with imputing `g1tmathss` scores for these students.
+
+\
+
+
+## Imputing Missing Math Scores
+
+In order to impute g1tmathss scores for students with missing values, we will build a linear regression model using some of the covariates described above in order to predict what those missing math scores are likely to be. We start by fitting the full first order linear regression model, containing all of the variables in `STAR1` as covariates. From the summary of this model (see Table A2 in the Appendix), the variables `race`, `g1surban`, `g1trace`, `g1classsize`, `g1freelunch`, and `g1present` are the most highly significant variables with regards to predicting `g1tmathss`, so we will create a subset model that contains only these variables. This model can be defined as the following:
+
+$$ Y_{i} = \beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_9X_9 + \epsilon_i $$
+
+In this model $Y_i$ represents the response variable of interest (`g1tmathss`), $\beta_0$ represents the intercept for the least squares regression model, $\beta_i, \  i = {1, 2, ..., 9}$ represent the regression coefficients for the covariates, $X_i, \ i = {1, 2, ..., 9}$ represent the covariates of interest (in this case, binary dummy variables for each non-reference level of the categorical variables for student ethnicity, urbanicity, teacher ethnicity, and free lunch qualification and quantitative variables for class size and number of days present in class), and $\epsilon_i$ represents the random error term. The standard assumptions for linear regression hold for this model, including that the random errors are independent and identically distributed Normal with mean zero and some constant variance $\sigma^2$.
+
+If we print the summary output for this model, we can see that the overall model F Test is highly significant, indicating that the overall model is significantly better than a null model consisting of only the mean `g1tmathss` value. Looking at the individual variable t-tests, it is clear that each covariate included in the model is highly significant as well; every categorical variable included in the model has at least one highly significant level and every quantitative variable is highly significant as well. These tests, compounded with an adjusted R-squared value of 0.16, are strong indications that this linear regression model is a good fit for predicting `g1tmathss` scores.
+
+\
+
+```{r, echo = FALSE}
+# Defining the full first order model for stepwise regression
+full_first = lm(g1tmathss ~ ., data = STAR1)
+
+# Creating a dataframe of model data
+model_dat = data.frame(cbind(STAR1$race, STAR1$g1surban, STAR1$g1trace, STAR1$g1classsize, STAR1$g1freelunch, STAR1$g1present, STAR1$g1tmathss))
+names(model_dat) = c("race", "g1surban", "g1trace", "g1classsize", "g1freelunch", "g1present", "g1tmathss")
+model_dat$race[model_dat$race > 2] = 3
+model_dat$race = as.factor(model_dat$race)
+model_dat$g1surban = as.factor(model_dat$g1surban)
+model_dat$g1trace = as.factor(model_dat$g1trace)
+model_dat$g1freelunch = as.factor(model_dat$g1freelunch)
+
+
+# Creating a linear regression model to predict first grade math scores for these students
+students = lm(g1tmathss ~ ., data = model_dat)
+```
+
+```{r, echo = FALSE}
+# Creating dataframes of the model summary values
+sum_df = as.data.frame(round(coef(summary(students)), 4))
+mod_sum = as.data.frame(rbind(c(39.57, 136.8,
+                                "0.0000", 0.1603)))
+names(mod_sum) = c("Residual SE", "F Statistic", "P-Value", "Adj. R-Squared")
+rownames(mod_sum) = "Total Model Summary"
+
+# Printing the Kable tables
+kable(sum_df, caption = "Table 3: Imputation Linear Model Summary", align = "c")
+kable(mod_sum, align = "c")
+```
+
+\
+
+A quick check of the model residual plots shows that the equal variance and normality assumptions appear valid as well. These are all good indications that this model does have predictive power for `g1tmathss` scores, so we will use the fitted values from this model for the students with missing math scores to impute those values.
+
+\
+
+**Figure 3: Imputation Linear Model Residual Plots**
+```{r, echo = FALSE, fig.width = 10, fig.height = 3, fig.align = "center"}
+# Setting the plotting window
+par(mfrow = c(1, 3), mar = c(5, 4, 1.8, 2))
+
+# Examining model residuals
+resids = students$residuals
+hist(resids, main = "", xlab = "Imputation Model Residuals")
+plot(students, which = 1)
+plot(students, which = 2)
+```
+\
+
+Using the `predict()` function, we can store a vector of predicted values for the 231 students with missing `g1tmathss` values, which we can then insert into the `STAR1` dataframe as our imputed values for those students. If we summarize `g1tmathss` once again, we see that there are no longer any missing values, and the mean/median did decrease slightly, as would be expected based on some of the demographic information for the students with missing values.
+
+\
+
+```{r, echo = FALSE, include = FALSE}
+# Creating a new dataframe for missing students containing only the lm variables of interest
+newdat = data.frame(cbind(missing$race, missing$g1surban, missing$g1trace, missing$g1classsize,
+                          missing$g1freelunch, missing$g1present, missing$g1tmathss))
+names(newdat) = c("race", "g1surban", "g1trace", "g1classsize", "g1freelunch", "g1present", "g1tmathss")
+newdat$race[newdat$race > 2] = 3
+newdat$race = as.factor(newdat$race)
+newdat$g1surban = as.factor(newdat$g1surban)
+newdat$g1trace = as.factor(newdat$g1trace)
+newdat$g1freelunch = as.factor(newdat$g1freelunch)
+
+
+# Imputing missing variables using the mice package
+imputed_data = mice(newdat, method = "pmm", m = 5)
+completed_data = complete(imputed_data)
+
+# Using this model and imputed data to predict math scaled scores for missing students
+predictions = predict(students, completed_data, interval = "prediction", level = 0.99/231)
+
+# Storing the predicted math1 scaled scores in the missing data frame
+missing$g1tmathss = round(predictions[,1], 0)
+
+# Replacing missing values in the STAR1 dataframe with our model predicted values
+STAR1$g1tmathss[is.na(STAR1$g1tmathss) == TRUE] = missing$g1tmathss
+```
+
+```{r, echo = FALSE}
+# Defining the different components of the summary table
+n = length(STAR1$g1tmathss)
+math_min = round(as.numeric(summary(STAR1$g1tmathss)[1]), 1)
+math_q1 = round(as.numeric(summary(STAR1$g1tmathss)[2]), 1)
+math_med = round(as.numeric(summary(STAR1$g1tmathss)[3]), 1)
+math_mean = round(as.numeric(summary(STAR1$g1tmathss)[4]), 1)
+math_sd = round(sd(STAR1$g1tmathss, na.rm = T), 1)
+math_q3 = round(as.numeric(summary(STAR1$g1tmathss)[5]), 1)
+math_max = round(as.numeric(summary(STAR1$g1tmathss)[6]), 1)
+math_na = round(as.numeric(summary(STAR1$g1tmathss)[7]), 1)
+
+# Creating the summary table
+summary_table = data.frame(rbind(c(n, math_min, math_q1, math_med, math_mean, math_sd, math_q3, math_max, math_na)))
+names(summary_table) = c("n", "Min", "1st Q", "Median", "Mean", "SD", "3rd Q", "Max", "NAs")
+kable(summary_table, caption = "Table 4: Summary Statistics for `g1tmathss`", align = "c")
+```
+
+\
+
+
+## Summarizing the Aggregate Data
+
+Now that we have accounted for missing values, we can continue our analysis by aggregating the `STAR1` data by teacher. This will allow us to conduct the rest of our analysis using teacher/class as the observational unit rather than individual students. Because the distribution of `g1tmathss` scores for all first grade students is roughly normally distributed, the median and mean are roughly equivalent, and so the metric that we will use to aggregate for each teacher is the mean `g1tmathss` score.
+
+Using the mean as our aggregating metric of choice, we are able to create a new dataset, titled `new_df`, which contains aggregate data for 12 variables across 339 different first grade classes/teachers. The variables included in this final dataframe are defined in Table 5 below:
+
+\
+
+```{r, warning = FALSE, echo = FALSE, include = FALSE}
+# Creating a new dataframe containing the mean value of math1 grouped by teacher, as well as other covariates
+new_df = summarize(
+  group_by(STAR1, g1tchid, g1classtype, g1schid, g1surban, g1tgen, g1trace, g1thighdegree, g1tcareer),
+  mean_math1 = mean(g1tmathss),
+  num_students = mean(g1classsize),
+  prop_lunch = length(g1freelunch[g1freelunch == 1])/num_students,
+  prop_white = length(race[race == 1])/num_students
+)
+
+new_df = data.frame(cbind(new_df$g1tchid, new_df$g1classtype, new_df$g1schid,
+                          new_df$g1surban, new_df$g1tgen, new_df$g1trace,
+                          new_df$g1thighdegree, new_df$g1tcareer,
+                          new_df$mean_math1, new_df$num_students, new_df$prop_lunch,
+                          new_df$prop_white))
+
+names(new_df) = c("g1tchid", "g1classtype", "g1schid", "g1surban", "g1tgen", "g1trace",
+                  "g1thighdegree", "g1tcareer", "mean_math1", "num_students",
+                  "prop_lunch", "prop_white")
+
+# Converting prop_lunch and prop_white into factors
+for (i in 1:length(new_df$prop_lunch)){
+  if (new_df$prop_lunch[i] <= 0.3){new_df$prop_lunch[i] = 1}
+  else if (new_df$prop_lunch[i] > 0.3 & new_df$prop_lunch[i] <= 0.5){new_df$prop_lunch[i] = 2}
+  else if (new_df$prop_lunch[i] > 0.5 & new_df$prop_lunch[i] <= 0.9){new_df$prop_lunch[i] = 3}
+  else if (new_df$prop_lunch[i] > 0.9){new_df$prop_lunch[i] = 4}
+}
+new_df$prop_lunch = as.factor(new_df$prop_lunch)
+
+for (i in 1:length(new_df$prop_white)){
+  if (new_df$prop_white[i] < 0.9){new_df$prop_white[i] = 1}
+  else if (new_df$prop_white[i] >= 0.9){new_df$prop_white[i] = 2}
+}
+new_df$prop_white = as.factor(new_df$prop_white)
+
+# Converting all other categorical variables to factors
+new_df$g1classtype = as.factor(new_df$g1classtype)
+new_df$g1schid = as.factor(new_df$g1schid)
+new_df$g1surban = as.factor(new_df$g1surban)
+new_df$g1tgen = as.factor(new_df$g1tgen)
+new_df$g1trace = as.factor(new_df$g1trace)
+new_df$g1thighdegree = as.factor(new_df$g1thighdegree)
+new_df$g1tcareer = as.factor(new_df$g1tcareer)
+
+# Building the variable summary table
+variable_summary = data.frame(
+  Variable = paste("`", names(new_df), "`"),
+  Type = c("Character", "Factor", "Factor", "Factor", "Factor", "Factor", "Factor", "Factor", "Numeric", "Numeric", "Factor",
+           "Factor"),
+  Description = c("Unique Teacher ID", "Class Type", "Unique School ID", "School Urbanicity", "Teacher Gender",
+                  "Teacher Ethnicity", "Teacher Highest Degree Earned", "Teacher Career Ladder Level", "Mean `g1tmathss` Score for that Teacher/Class",
+                  "Number of Students in that Class", "Proportion of Students in Class on Free Lunch",
+                  "Proportion of White Students in Class")
+)
+```
+
+```{r, echo = FALSE}
+# Printing the summary table
+kable(variable_summary, caption = "Table 5: Final Analysis Dataset Variable Details", align = "c")
+```
+
+\
+
+These variables were selected because of their potential effect on academic performance based on results from the literature and general background knowledge. Each of the variables represent the same thing that they did in the `STAR1` dataset, with `mean_math1` being the average math score for all students within each teacher/class, `num_students` being the exact number of students within each teacher/class, `prop_lunch` being the proportion of students on free lunch within each teacher/class (classes with 0-30% of students on free lunch were categorized as "Low", 30-50% "Medium-Low", 50-90% "Medium-High", and 90-100% as "High"), and `prop_white` being the proportion of white students within each teacher/class (classes with 0-90% of white students were categorized as "Low", and 90-100% as "High").
+
+With this new dataframe containing the response variable and covariates aggregated for each teacher/class, we can now summarize these covariates and begin to investigate the relationships between each of them and `mean_math1` in order to determine which covariates may be useful to include in the final model. Table A3 in the Appendix contains summary data for each variable.
+
+From these summary tables, we can glean a few key details. First, the number of classes of each class type is relatively balanced, with each class type having over 100 replicates. We can can also see that there is some variation in the number of Project STAR classes included in each of the 76 schools in this dataset, with most schools having between 3 and 5 first grade Project STAR classes. There is also an indication that teacher gender may not be a valuable covariate to include in our model, since there are only two Male teachers in the dataset and 336 Female teachers. Teacher career level is similarly unbalanced, with most observations falling in the Career Ladder Level One group. For this reason, we will opt to not consider these variables moving forward. It is also worth noting that there remain some classes that have missing values for teacher ethnicity and degree. If either of these variables end up being included in the final model, we will need to justify either removing or imputing those values.
+
+Finally, we can see that the observed number of students in each class varies slightly, spanning from 12 students in the smallest class to 30 students in the largest class. Class sizes not being uniform within each class type is a function of natural variability in the number of first grade students at each school in each year, as well as noncompliance, as mentioned in the previous section. Because some students switched classes and therefore were not in the class type that they were assigned, we may have reason to worry about the validity or causality of the results of our analysis. However, if we summarize the number of students per class across each class type as seen in the table below, we can see that the majority of classes fall within the range specified by the Project STAR experimental design on average (15-17 students for "small" classes, 22-25 students for "regular" and "regular + aide" classes). For this reason, I am confident that the results of our analysis will be valid despite some noncompliance among students, although it is still worth making note of this fact going forward.
+
+\
+
+```{r, echo = FALSE}
+# Creating a table of the mean number of students per class type in this dataset
+small_sum = tapply(new_df$num_students, new_df$g1classtype, summary)$`1`
+reg_sum = tapply(new_df$num_students, new_df$g1classtype, summary)$`2`
+regaid_sum = tapply(new_df$num_students, new_df$g1classtype, summary)$`3`
+classsize_sum = as.data.frame(rbind(small_sum, reg_sum, regaid_sum))
+SD = round(tapply(new_df$num_students, new_df$g1classtype, sd), 2)
+classsize_sum$SD = SD
+order =  c("Min.", "1st Qu.", "Median", "Mean", "SD", "3rd Qu.", "Max.")
+classsize_sum = classsize_sum[, order]
+classsize_sum = round(classsize_sum, 2)
+rownames(classsize_sum) = c("Small", "Regular", "Regular + Aide")
+
+# Printing table
+kable(classsize_sum, caption = "Table 6: Number of Students in Each Class Size Summary", align = "c")
+```
+
+\
+
+Next, we examine the main effects plots for each covariate in order to determine which, if any, of these variables appear to have an effect on `mean_math1` scores. From these plots in Figure 4, it seems apparent that each covariate has potentially significant effects on `mean_math1` scores, as evidenced by the the differing means between groups for each of these variables.
+
+For class type, it appears as though "small" classes tend to have higher `mean_math1` scores than either "regular" or "regular + aide" classes. Similarly for urbanicity, "inner city" schools seem to have a much lower average `mean_math1` score than schools classified as "suburban," "rural," or "urban." The average `mean_math1` score for black teachers appears much lower than that of white teachers, and there does seem to be a positive relationship between the highest degree earned by the teacher and `mean_math1` performance. There is a similarly stark relationship between student economic status and `mean_math1` scores; the average `mean_math1` score decreases noticeably as the proportion of free lunch students increases. Finally, we also see a much lower average `mean_math1` value among classes with a low proportion of white students relative to classes with a high proportion of white students.
+
+\
+
+**Figure 4: Main Effects Plots for Potential Covariates**
+```{r, warning=FALSE, fig.width=10, echo = FALSE, fig.align = "center"}
+# Plotting the main effects of each covariate in the dataset
+par(mfrow = c(2, 3))
+
+# Main effects plot for class type
+plotmeans(mean_math1 ~ g1classtype, data = new_df, xlab = "Class Type", ylab = "Avg. 1st Grade Math Score",
+          main = "Main Effect, Class Type", cex.lab = 1.2, ylim = c(520, 545))
+
+# Main effects plot for school urbanicity
+plotmeans(mean_math1 ~ g1surban, data = new_df, xlab = "School Urbanicity",
+          ylab = "",
+          main = "Main Effect, School Urbanicity", cex.lab = 1.2, ylim = c(500, 545))
+
+# Main effects plot for teacher ethnicity
+plotmeans(mean_math1 ~ g1trace, data = new_df, xlab = "Teacher Race", ylab = "Avg. 1st Grade Math Score",
+          main = "Main Effect, Teacher Ethnicity", cex.lab = 1.2, ylim = c(510, 540))
+
+# Main effects plot for Teacher's highest degree achieved
+plotmeans(mean_math1 ~ g1thighdegree, data = new_df, xlab = "Teacher Highest Degree Achieved",
+          ylab = "Avg. 1st Grade Math Score",
+          main = "Main Effect, Teacher High Degree", cex.lab = 1.2, ylim = c(525, 540))
+
+# Main effects plot for Teacher's career position
+plotmeans(mean_math1 ~ prop_lunch, data = new_df, xlab = "Proportion of Free Lunch Students",
+          ylab = "",
+          main = "Main Effect, Student Economic Status", cex.lab = 1.2, ylim = c(500, 550))
+
+# Main effects plot for teacher gender
+plotmeans(mean_math1 ~ prop_white, data = new_df, xlab = "Proportion of White Students",
+          ylab = "",
+          main = "Main Effect, Student Ethnicity", cex.lab = 1.2, ylim = c(515, 545))
+
+```
+
+\
+
+Since it seems clear that there are main effects present among these covariates, we will continue to examine each of them for interactions in order to determine if any interaction terms should be included in our final model. We start by collapsing groups 5 and 6 of the highest degree achieved variable into group 3, so that the new degree variable consists of two groups: Bachelors degree (2) and greater than Bachelors degree (3). Then we look at pair-wise interaction plots between each covariate of interest and class type (because school ID has 76 unique levels, interaction plots are not included for this variable since they would be illegible).
+
+The interaction plots, found in Figure A1 in the Appendix, do indicate that there are potential interactions at play between some of these covariates, evidenced by non-parallel lines in some of the plots. In particular, school urbanicity, teacher ethnicity, and teacher degree all appear to have potential interactions with class type when it comes to `mean_math1` scores, which is key since our research questions of interest pertain to the different class types. Whether these interaction terms are significant or not in the context of an ANOVA model is yet to be seen, but based on these plots alone we have reason to believe that any of school urbanicity, teacher ethnicity, and teacher degree achievement could have an additional impact on `mean_math1` scores beyond the additive model that we fit in the initial analysis that included only class type and school ID. In the ensuing section, we will go through the steps of choosing our final model using these covariates. 
+
+\
+
+
+# Inferential analysis 
+
+With our list of potential covariates set, we can now define our final ANOVA model. In doing so, the first step that I took was to fit a full first-order ANOVA model with each of urbanicity, teacher ethnicity, teacher high degree, student free lunch proportion, white student proportion, school ID, and class type as the covariates. As can be seen in Table A4 in the Appendix, only urbanicity, free lunch proportion, school ID, and class type were highly significant, so I narrowed the model down to only these variables. From there, a second model was fit including only these covariates and their pairwise interactions, and once again only the four additive covariates were significant (see Table A5 in the Appendix). Ultimately, the following model was adopted:
+
+$$Y_{ijklm} = \mu_{....} + \alpha_{i} + \beta_{j} + \gamma_k + \delta_l + \epsilon_{ijklm}$$
+
+The model terms are defined below:
+
+* index $i$ represents school urbanicity: inner-city ($i=1$), suburban ($i=2$), rural ($i=3$), urban ($i=4$) \
+* index $j$ represents student free lunch proportion: low ($j=1$), medium-low ($j=2$), medium-high ($j=3$), high ($j=4$) \
+* index $k$ represents the school indicator ($k = 1, 2, ..., 76$) \
+* index $l$ represents class type: small ($l=1$), regular ($l=2$), regular with aide ($l=3$) \
+* index $m$ represents the number of classes of urbanicity $i$, free lunch proportion $j$, school $k$ and class type $l$ \
+* $Y_{ijklm}$ represents the mean_math1 score for the $m^{th}$ teacher/class of urbanicity $i$, free lunch proportion $j$, school $k$, and class type $l$ \
+* $\mu_{....}$ represents the average mean_math1 score across all unique urbanicity, free lunch proportion, school ID, and class type groups \
+* $\alpha_{l}$ represents the main affect on mean_math1 score by urbanicity $i$ \
+* $\beta_{j}$ represents the main affect on mean_math1 score by free lunch proportion $j$ \
+* $\gamma_{k}$ represents the main affect on mean_math1 score by school $k$ \
+* $\delta_{l}$ represents the main affect on mean_math1 score by class size $l$ \
+* $\epsilon_{ijklm}$ represents the random error term for the $m^{th}$ teacher/class of urbanicity $i$, free lunch proportion $j$, school $k$, and class type $l$ \
+($Y_{ijklm} - \mu_{....} - \alpha_{i} - \beta_{j} - \gamma_k - \delta_l$). We assume $\epsilon_{ijklm}$ are independent and identically distributed N(0, $\sigma^2$) for all ${i}$, ${j}$, ${k}$, $l$, and $m$, where $\sigma^2$ is a constant variance parameter.
+
+The following constraint holds for each of the factor effects parameters:
+
+$$\sum_\limits{i=1}^4\alpha_{i} = \sum_\limits{j=1}^4\beta_{j} = \sum_\limits{k=1}^{76}\gamma_{k} = \sum_\limits{l=1}^{3}\delta_{l} = 0$$ \
+
+In addition to the the iid Normality assumptions for the model error terms, this model also comes with some key assumptions:
+
+* **Fixed Effects:** We're assuming that the levels of the explanatory variables urbanicity, free lunch proportion, school ID, and class type are fixed and that they're *not* randomly selected from a larger population of urbanicity, free lunch proportion, school ID, and class type levels. This is a reasonable assumption for each of urbanicity, free lunch proportion, and class type, but may be a stretch for school ID since not every school in Tennessee was represented in Project STAR. Nonetheless, I think it is a relatively harmless assumption to make considering the scale of the Project STAR experiment.
+
+* **Additivity:** We're also assuming that the model covariates are additive in their relationship with each other. In other words, we're assuming that no interaction terms are present between any covariates. It's possible that there are interaction effects between class size, urbanicity, and free lunch status, but for the scope of this project and for the interpretability of the model results, we opt to leave interactions out of the final model. It's also worth noting that Table A5 in the Appendix contains all pairwise interactions between covariates and none were statistically significant, so it seems reasonable to proceed without interaction terms at this time.
+
+* **Balanced Treatment Groups:** The final assumption we're making here is that the different treatment cells (unique urbanicity, free lunch, school ID, class type groups) are balanced. While this may not be the case in practice, we can conduct an alternative ANOVA test for the main effect of class type using the `car` package. This will be carried out in the Sensitivity Analysis section to determine if the results from this alternative ANOVA differ meaningfully from the balanced-design model we have defined above.
+
+Ultimately, I believe this model is appropriate to answer our research questions of interest because it will allow us to determine whether or not class type has a significant effect on average first grade math scores after adjusting for a number of other key non-treatment variables that have a strong effect on academic outcomes. This will allow us to provide a more robust answer to the research questions of interest than the initial analysis report.
+
+***
+
+With our ANOVA model defined, we can now fit the model to the `mean_math1` values for each class and answer our research questions of interest. To answer the primary research question of whether or not class type has a significant on first grade math test scores, we will test the following hypotheses at the 1% significance level:
+
+$$H_0: \delta_1 = \delta_2 = \delta_3 = 0 \\ H_A: Not \ all \ \delta_l = 0$$
+
+To test these hypotheses, we will refer to an F Test for the main effect of class type, found in the summary output of the ANOVA model in Table 7 below. With an F value of 19.6 and a corresponding P-Value of roughly zero, we have strong statistical evidence at the 1% significance level to reject the null hypothesis. This means that we have **highly significant evidence that class type does have an effect on math scores in the first grade, even after adjusting for urbanicity, student economic status, and school ID**.
+
+\
+
+```{r, echo = FALSE}
+# Run an initial model using all covariates
+mod1 = aov(mean_math1 ~ g1surban + g1trace + g1thighdegree + prop_lunch + prop_white + g1schid + g1classtype, data = new_df)
+
+# Run a model without teacher ethnicity, teacher high degree, and student ethnicity, plus pairwise interactions
+mod2 = aov(mean_math1 ~ g1surban*prop_lunch*g1schid*g1classtype, data = new_df)
+
+# Run a model consisting of only class type, urbanicity, prop_lunch, and school ID
+mod3 = aov(mean_math1 ~ g1surban + prop_lunch + g1schid + g1classtype, data = new_df)
+mod_df = as.data.frame(anova(mod3))
+mod_df = round(mod_df, 4)
+
+
+# Run the initial analysis mode
+initial = lm(mean_math1 ~ g1schid + g1classtype, data = new_df)
+
+kable(mod_df, caption = "Table 7: Final ANOVA Model Summary", align = "c")
+```
+
+\
+
+For the secondary research question of which class type is associated with the highest average first grade math scores, we can utilize Tukey's range test in the `TukeyHSD()` function. We will run this test with a 1% family-wise significance level to determine which class type has the highest overall mean math scores in the first grade. Figure 5 contains the confidence intervals for the differences in `mean_math1` scores between each class type. We can see immediately that there is a hierarchy: the "small" class type is associated with significantly better `mean_math1` performance than either the "regular" or "regular + aide" class types. There is no significant difference in the `mean_math1` performance between the two regular class types.
+
+\
+
+**Figure 5: Tukey's HSD by Class Type**
+```{r, fig.align = "center", fig.height = 5, fig.width = 10, echo = FALSE}
+# Plotting the TukeyHSD intervals
+tukres = TukeyHSD(mod3, which = "g1classtype", conf.level=.99)
+plot(tukres)
+text(-17.91, 2.85, -17.91, col = "red")
+text(-11.77, 2.85, -11.77)
+text(-5.62, 2.85, -5.62, col = "red")
+text(-16.44, 1.85, -16.44, col = "red")
+text(-10.06, 1.85, -10.06)
+text(-3.69, 1.85, -3.69, col = "red")
+text(-4.78, 1.15, -4.78, col = "red")
+text(1.70, 1.15, 1.70)
+text(8.19, 1.15, 8.19, col = "red")
+```
+\
+
+So what does this all mean in the context of Project STAR? Well, we can begin by claiming that there is highly significant statistical evidence that a smaller first grade class size **causes** improved first grade math standardized scores on average, and that this effect is between the magnitudes of 5.6 to 17.9 points relative to regular classes and 3.7 to 16.4 point relative to regular classes with an aide. This is the case even after factoring in the natural variation in math scores that we would see between classes of different urbanicities, free lunch proportions, and school IDs. We can claim causality in our results because, as was noted in the Background section of this report, the Project STAR experiment was highly controlled so that the only systematic and non-random difference between students in different classes was their randomly assigned treatment of class size. Other potentially confounding variables were accounted for in the model as well, leaving us with the ultimate conclusion that smaller classes lead to better math scores in the first grade.
+
+This conclusion is similar to the one we came to in the initial analysis report, and Table 8 shows that the final ANOVA model here is not particularly different from the initial analysis model by many key metrics. This is evidenced by the similar values for AIC, BIC, and MSE, as well as the non-significant P-Value for the model comparison test, which indicates that we should not reject the null hypothesis that there is no significant difference between the two models.
+
+\
+
+```{r, echo = FALSE}
+# Comparing results to initial model
+aic = round(AIC(mod3, initial)[, 2], 1)
+bic = round(BIC(mod3, initial)[, 2], 1)
+mse = c(260, 261)
+anova_p = c(NA, 0.2746)
+
+comparison = as.data.frame(cbind(aic, bic, mse, anova_p))
+rownames(comparison) = c("Final ANOVA Model", "Initial ANOVA Model")
+names(comparison) = c("AIC", "BIC", "MSE", "F-Test P-Value")
+
+kable(comparison, caption = "Table 8: ANOVA Model Comparison", align = "c")
+```
+
+\
+
+The key difference between these two models, however, is robustness. The model in the initial analysis report did not account for missing values or other covariates besides school ID, and this final model has attempted to correct for both issues. So while the results may be similar between the two models, we can be more certain that there are fewer confounding factors affecting the results of our analysis here. In other words, the fact that we are still seeing a significant effect of small class size on first grade math scores even after imputing missing values and adjusting for more covariates is an even stronger indication that the causal relationship exists.
+
+\
+
+
+# Sensitivity analysis 
+
+In order to confirm that the results of the final ANOVA model are valid, we must first check the model assumptions of independent, identically distributed Normal error terms with mean zero and constant variance $\sigma^2$. Figure 6 displays the histogram of the model residuals, as well as the residuals vs. fitted values and Normal Q-Q plot, all of which can help us determine if the model assumptions appear valid. We can see from the diagnostic plots below that the model residuals appear roughly normally distributed, with a mean of zero and a constant variance across all fitted values. There does appear to be evidence of light-tails in both the histogram and Normal Q-Q plot, which is an indication that there may be some slight non-normality in our model. Generally speaking, however, normality appears to roughly hold, and with a relatively large sample size (339 teachers), we should still feel confident in our model results.
+
+\
+
+**Figure 6: Final ANOVA Diagnostic Plots**
+```{r, echo = FALSE, fig.width = 10, fig.height = 3, fig.align = "center"}
+# Setting the plotting window
+par(mfrow = c(1, 3), mar = c(5, 4, 1.8, 2))
+
+# Final model diagnostic plots
+hist(mod3$residuals, main = "", xlab = "ANOVA Model Residuals")
+plot(mod3, which = 1)
+plot(mod3, which = 2)
+```
+\
+
+As a continuation of our model diagnostics, we can confirm what we see in Figure 6 by looking at the Shapiro-Wilk test for normality as well as a series of Levene tests for constant variance. Table 9 summarizes these test results, and we can see that with large P-Values for the Levene tests, we can be confident in failing to reject the null hypothesis that the residual variance is constant. The Shapiro-Wilk test result, however, is highly significant, indicating that we do have some statistically significant deviations from Normality. In order to determine if we should question the validity of our model results, we can run a non-parametric Rank test to answer our main research question and determine if there is a vast difference in our conclusion.
+
+\
+
+```{r, echo = FALSE}
+# Shapiro-Wilk test for normality
+sw = shapiro.test(mod3$residuals)
+
+# Levene tests for equal variance, one-way models
+st = leveneTest(mean_math1 ~ g1classtype, new_df)
+su = leveneTest(mean_math1 ~ g1surban, new_df)
+pl = leveneTest(mean_math1 ~ prop_lunch, new_df)
+sc = leveneTest(mean_math1 ~ g1schid, new_df)
+
+# combining test results into dataframe
+lvn = rbind(su, pl, sc, st)
+lvn = lvn[c(1, 3, 5, 7), ]
+row.names(lvn) = c("Levene g1surban", "Levene prop_lunch", "Levene g1schid", "Levene g1classtype")
+lvn = as.data.frame(lvn)
+row1 = c(NA, NA, 0.00000)
+lvn = as.data.frame(rbind(row1, lvn))
+rownames(lvn)[1] = "Shapiro-Wilk Test"
+
+# Printing the summary table
+kable(lvn, caption = "Table 9: ANOVA Model Diagnostic Test Results", align = "c")
+```
+
+\
+
+To complete this nonparametric Rank F Test, we will fit our final ANOVA model to the rank of `mean_math1` ($R_{ijklm}$) rather than the raw score \
+($Y_{ijklm}$). This will give us a test result that is not dependent on the Normality assumption. Similarly, the ANOVA model that we fit to the data assumed a balanced design, and in order to determine if that assumption may not be valid we can fit an alternative Type II ANOVA model using the `car` package; if the results from this model differ meaningfully from the original model that we fit, then we may have reason to doubt the validity of the balanced design assumption. In Table 10 below, we compare the results of the ANOVA F Test for the main effect of class type on `mean_math1` across each of the three different models.
+
+\
+
+```{r, echo = FALSE, include = FALSE}
+# Fitting the nonparametric model
+mod3_np = aov(rank(mean_math1) ~ g1surban + prop_lunch + g1schid + g1classtype, data = new_df)
+
+# Fitting the Type III ANOVA model
+mod3_t3 = Anova(lm(mean_math1 ~ g1surban + prop_lunch + g1schid + g1classtype, data = new_df), type = 2)
+
+# Creating a comparison table
+models = c("Parametric ANOVA Model", "Nonparametric ANOVA Model", "Type II ANOVA Model")
+f_stat = c(19.6, 18.65, 19.64)
+p_val = c(0.00, 0.00, 0.00)
+mod_comp = as.data.frame(cbind(f_stat, p_val), row.names = models)
+names(mod_comp) = c("F Statistic", "P-Value")
+```
+
+```{r, echo = FALSE}
+# Printing the table
+kable(mod_comp, caption = "Table 10: Model F Test Comparison", align = "c")
+```
+
+\
+
+As we can see, the results are nearly identical for all three models. Pairing this with the fact that we have a large sample size and that the distribution is clearly not far from Normal, we have a strong indication that the model results in the Inferential Analysis section are valid. As a final analysis of the sensitivity of our ANOVA model, we will compare the model estimates for the differences in `mean_math1` scores between class types in the hypothetical scenario where we simply removed the original 231 missing `g1tmathss` values. Figure 7, shown below, demonstrates how our Tukey point estimates for the differences between each group would change under the different strategies for handling missing values.
+
+\
+
+```{r, echo = FALSE, include = FALSE}
+# Re-fitting our model assuming we tossed out the 231 missing g1tmathss values
+STAR1_alt = STAR[STAR$FLAGSG1 == 1, c(1, 2, 3, 8, 27, 55:64, 68, 71)]
+new_df_alt = summarize(
+  group_by(STAR1_alt, g1tchid, g1classtype, g1schid, g1surban),
+  mean_math1 = mean(g1tmathss, na.rm = TRUE),
+  prop_lunch = length(g1freelunch[g1freelunch == 1])/mean(g1classsize),
+)
+
+new_df_alt = data.frame(cbind(new_df_alt$g1tchid, new_df_alt$g1classtype, new_df_alt$g1schid,
+                          new_df_alt$g1surban, new_df_alt$mean_math1, new_df_alt$prop_lunch))
+
+names(new_df_alt) = c("g1tchid", "g1classtype", "g1schid", "g1surban", "mean_math1",
+                  "prop_lunch")
+
+for (i in 1:length(new_df_alt$prop_lunch)){
+  if (new_df_alt$prop_lunch[i] <= 0.3){new_df_alt$prop_lunch[i] = 1}
+  else if (new_df_alt$prop_lunch[i] > 0.3 & new_df_alt$prop_lunch[i] <= 0.5){new_df_alt$prop_lunch[i] = 2}
+  else if (new_df_alt$prop_lunch[i] > 0.5 & new_df_alt$prop_lunch[i] <= 0.9){new_df_alt$prop_lunch[i] = 3}
+  else if (new_df_alt$prop_lunch[i] > 0.9){new_df_alt$prop_lunch[i] = 4}
+}
+new_df_alt$prop_lunch = as.factor(new_df_alt$prop_lunch)
+
+new_df_alt$g1classtype = as.factor(new_df_alt$g1classtype)
+new_df_alt$g1schid = as.factor(new_df_alt$g1schid)
+new_df_alt$g1surban = as.factor(new_df_alt$g1surban)
+
+data_rm = aov(mean_math1 ~ g1surban + prop_lunch + g1schid + g1classtype, data = new_df_alt)
+
+# Extracting Tukey point estimates from each model
+tukey_rm = TukeyHSD(data_rm, which = "g1classtype", conf.level = 0.99)
+tukey_rm = tukey_rm$g1classtype[ , 1]
+tukey_orig = tukres$g1classtype[, 1]
+tukey_comp = as.data.frame(rbind(tukey_orig, tukey_rm))
+```
+
+**Figure 7: Sensitivity of Tukey HSD Point Estimates to Removing Missing Values**
+```{r, echo = FALSE, fig.width = 8, fig.height = 4, fig.align = "center"}
+# Plotting sensitivity analysis barplot
+par(mar = c(3, 4, 1, 2))
+bp_vals = barplot(c(tukey_comp$`2-1`, tukey_comp$`3-1`, tukey_comp$`3-2`), ylim =c(-15, 5),
+        col = c("lightblue", "lightblue", "steelblue", "steelblue", "darkred", "darkred"),
+        ylab = "Tukey Point Estimate")
+legend("bottomright", legend = c("2-1", "3-1", "3-2"), fill = c("lightblue", "steelblue", "darkred"), 
+       title = "Comparison", bty = "n", cex = 1.2)
+
+# Adding text to plot
+text(x = 0.7, y = 1, "Original Model", cex = 0.8)
+text(x = 1.9, y = 1, "NA Removed", cex = 0.8)
+text(x = 3.1, y = 1, "Original Model", cex = 0.8)
+text(x = 4.3, y = 1, "NA Removed", cex = 0.8)
+text(x = 5.5, y = -1, "Original Model", cex = 0.8)
+text(x = 6.7, y = -1, "NA Removed", cex = 0.8)
+text(x = 0.7, y = tukey_comp[1, 1] - 0.8, round(tukey_comp[1, 1], 2), cex = 0.8)
+text(x = 1.9, y = tukey_comp[2, 1] - 0.8, round(tukey_comp[2, 1], 2), cex = 0.8)
+text(x = 3.1, y = tukey_comp[1, 2] - 0.8, round(tukey_comp[1, 2], 2), cex = 0.8)
+text(x = 4.3, y = tukey_comp[2, 2] - 0.8, round(tukey_comp[2, 2], 2), cex = 0.8)
+text(x = 5.5, y = tukey_comp[1, 3] + 0.8, round(tukey_comp[1, 3], 2), cex = 0.8)
+text(x = 6.7, y = tukey_comp[2, 3] + 0.8, round(tukey_comp[2, 3], 2), cex = 0.8)
+```
+
+What this plot tells us is that there is a slight dampening effect in the Tukey point estimates when we use a linear model to impute the missing `g1tmathss` scores. As we move from the original model with imputed scores to the hypothetical model where we simply remove NA values, we can see that the Tukey estimates for the differences between class types become slightly more extreme. This is an indication that our model is fairly robust against methodology changes; in other words, the results ultimately end up being similar if we opt to remove missing math score values or impute them. This is also the case when examining the results of the F Test for the main effect of class type for both models—Table A7 in the appendix shows that the F statistics and P-Values are essentially identical for both models.
+
+For these reasons, I am confident that the methodology chosen to impute the missing math score values was valid, and in fact it likely provided slightly more accurate results than if we had simply thrown those missing values out, as evidenced by more precise Tukey confidence intervals, which can also be found in Table A7 in the Appendix.
+
+\
+
+
+# Discussion 
+
+In this project, we examined Project STAR data among first grade participants in order to answer the research questions of whether or not the randomly assigned treatment of class type had an effect on math test scores in the first grade and, if so, which class type was associated with the best math performance. In summarizing the student-level data, we found 231 missing math score values; to address this, we designed a linear regression model consisting of student ethnicity, school urbanicity, teacher ethnicity, numeric class size, free lunch status, and days present in class to impute math score values for the students with missing data. Next, we aggregated the Project STAR dataset by unique teacher ID to create a new dataset that consisted of 339 teachers and the average math exam score for each teacher, as well as other covariates.
+
+This dataframe was then used to develop a multidimensional additive ANOVA model that included school urbanicity, free lunch proportion, unique school ID, and class type as covariates. In fitting this ANOVA model, we found a highly significant F statistic and P-Value when testing the main effect of class type on math performance in the first grade. Tukey intervals clearly showed that the "small" class type was associated with significantly higher average math scores than either the "regular" or "regular + aide" class types.
+
+These results provide very strong evidence that smaller class sizes do, in fact, lead to higher math test scores in the first grade; causal effects can be drawn here because of the random assignment of the treatment variable (class type) and the relatively strong control that the Project STAR researchers had over other potentially confounding variables in the experiment design. Because the ANOVA model that we fit was sequential, the main effect of class type was determined **after accounting for the effects of all other covariates in the model.** This provides more robust answers to the research questions of interest than were provided in the initial analysis report because we are accounting for more variables, thus showing that class type has a significant effect on math scores even after accounting for the effect of urbanicity, free lunch status, and school ID.
+
+The Tukey confidence intervals from our model provide further details on the relationship between class type and math scores after adjusting for the other covariates. Based on these intervals, we are highly confident that being in a small class leads to better math scores by between 5.6 and 17.9 points relative to being in a regular class and between 6.7 and 16.4 points relative to being in a regular class with an aide. No significant difference in math performance was found between regular classes and regular classes with an aide.
+
+These findings are all in line with what has been reported in the literature analyzing the Project STAR data since the experiment ended in 1989. The effect of class size on academic achievement in Project STAR and other studies has been well documented by researchers, and so these results can be considered a very specific instance of the larger consensus that has been found in recent decades: smaller class size in first grade (and primary school in general) leads to better math performance (and better academic performance in general). It is the recommendation of this report, as well as countless others, that smaller primary school class sizes should be adopted whenever possible.
+
+While this sounds like an easy enough solution to adopt in early education policy around the country, there are some caveats that come with these results. First, as mentioned in the Background section, the generalizeability of these results is limited to the scope of the Project STAR experiment. In other words, we can't assume that the conclusions of this project apply to students outside of the state of Tennessee, students who are not in the first grade, or students attending school in 2024. Another key caveat here is that adopting smaller class sizes is a costly endeavor, and while researchers like Kreuger (2002) argue that there will be a positive net rate of return on this investment, it can still be difficult for federal and local governments to organize the resources needed to bring on additional teachers and classrooms for smaller primary school class sizes.
+
+Nonetheless, the results in this report and in general are clear, and there are potential avenues of research that can continue to confirm and strengthen these findings. Conducting similar experiments to Project STAR in other states or even a nationwide setting in 2024 and beyond would help to show whether or not these conclusions can be applied to a more general population in a modern setting. Further analysis than what was done in this report can be carried out on the Project STAR data itself as well, including looking at other primary school grades, looking at long-term academic outcomes for Project STAR students, and even incorporating more quantitative covariates in a multiple or logistic regression analysis. Ultimately, while the positive relationship between smaller class sizes and academic performance is clear, there is still plenty of work to be done to optimize early education policy in the United States.
+
+\
+
+
+# Appendix {-}
+
+\
+
+```{r, include = FALSE}
+# Creating the variable codebook
+codebook = data.frame(
+  Variable = c(paste("`", names(STAR1), "`"), "`num_students`", "`prop_lunch`", "`prop_white`"),
+  Type = c("Character", "Factor", "Factor", "Factor", "Factor", "Character", "Factor", "Character", "Factor", "Factor", "Factor", "Factor",
+           "Numeric", "Numeric", "Factor", "Numeric", "Numeric", "Numeric", "Factor", "Factor"),
+  Description = c("Unique Student ID", "Student Gender (1 = Male, 2 = Female)",
+                  "Student Ethnicity (1 = White, 2 = Black, 3 = Other)", "Flagging first grade STAR participation (1 = Participated in 1st Grade, 2 = Did not participate)",
+                  "Class Type (1 = Small, 2 = Regular, 3 = Regular+Aide)", "Unique School ID", "School Urbanicity (1 = Inner City, 2 = Suburban, 3 = Rural, 4 = Urban)",
+                  "Unique Teacher ID", "Teacher Gender (1 = Male, 2 = Female)", "Teacher Ethnicity (1 = White, 2 = Black)",
+                  "Teacher Highest Degree Earned (2 = Bachelors, 3 = Greater than Bachelors)",
+                  "Teacher Career Ladder Level (1 = Not on ladder, 2 = Apprentice, 3 = Probation, 4 = L1, 5 = L2, 6 = L3)",
+                  "Teacher Years of Experience", "Exact Class Size",
+                  "Student Free Lunch Qualification (1 = Qualified, 2 = Did not qualify)",
+                  "Days Student Was Present in Class", "First Grade Scaled Math Score",
+                  "Numeric Class Size", "Proportion of Student Qualified for Free Lunch (1 = Low, 2 = Medium-Low, 3 = Medium-High, 4 = High)",
+                  "Proportion of White Students (1 = Low, 2 = High)")
+)
+```
+```{r, echo = FALSE, fig.align = 'center'}
+# Printing the table
+kable(codebook, caption = "Table A1: Variable Codebook")
+```
+
+\
+
+```{r, echo = FALSE}
+# Printing the summary output for the full first order imputation model
+full = coef(summary(full_first))
+kable(full, caption = "Table A2: Full First Order Imputation Model Summary")
+```
+
+\
+
+```{r, echo = FALSE, include = FALSE}
+# Summarizing each variable in the dataset
+ct = summary(new_df$g1classtype)
+su = summary(new_df$g1surban)
+tg = summary(new_df$g1tgen)
+tr = summary(new_df$g1trace)
+thd = summary(new_df$g1thighdegree)
+tc = summary(new_df$g1tcareer)
+pl = summary(new_df$prop_lunch)
+pw = summary(new_df$prop_white)
+
+# Creating a summary dataframe for the categorical variables
+cat_sum = as.data.frame(rbind(tg, tr, pw, ct, su, pl, thd, tc))
+names(cat_sum) = c("Level 1 Count", "Level 2 Count", "Level 3 Count", "Level 4 Count", "Level 5 Count", "Level 6 Count", "NA Count")
+rownames(cat_sum) = c("`g1tgen`", "`g1trace`", "`prop_white`", "`g1classtype`", "`g1surban`", "`prop_lunch`",  "`g1thighdegree`", "`g1tcareer`")
+cat_sum[1, 3:7] = c("", "", "", "", 1)
+cat_sum[2, 3:7] = c("", "", "", "", 1)
+cat_sum[3, 3:7] = c("", "", "", "", 0)
+cat_sum[4, 4:7] = c(rep("", 3), 0)
+cat_sum[5, 5:7] = c("", "", 0)
+cat_sum[6, 5:7] = c("", "", 0)
+cat_sum[7, 1:7] = c(0, 219, 116, 0, 2, 1, 1)
+
+# Creating a summary dataframe for the numeric variables
+schid = summary(summary(new_df$g1schid))
+stu = summary(new_df$num_students)
+mmath = summary(new_df$mean_math1)
+num_sum = as.data.frame(rbind(schid, stu, mmath))
+SD = c(sd(summary(new_df$g1schid)), sd(new_df$num_students), sd(new_df$mean_math1))
+num_sum$SD = SD
+order =  c("Min.", "1st Qu.", "Median", "Mean", "SD", "3rd Qu.", "Max.")
+num_sum = num_sum[, order]
+num_sum = round(num_sum, 2)
+rownames(num_sum) = c("`g1schid`", "`num_students`", "`mean_math1`")
+```
+
+```{r, echo = FALSE}
+# Printing the summary table
+kable(cat_sum, caption = "Table A3: Final Analysis Variable Summaries", align = "c")
+kable(num_sum, align = "c")
+```
+
+\
+
+**Figure A1: Interaction Plots for Potential Model Covariates**
+```{r, fig.height = 6, fig.width = 10, echo = FALSE, fig.align = "center"}
+# Grouping all degrees higher than bachelor together
+new_df$g1thighdegree[new_df$g1thighdegree != 2] = 3
+
+# Dropping any unneeded factor groups
+new_df$g1thighdegree = droplevels(new_df$g1thighdegree)
+
+# Plotting two-way interaction plots between each of the key variables
+par(mfrow = c(2, 3))
+
+# Interaction plot for School Urbanicity vs. Class size
+interaction.plot(new_df$g1surban, new_df$g1classtype, new_df$mean_math1,
+                 cex.lab = 1.2, ylab = "Avg. 1st Grade Math Score", xlab = "School Urbanicity",
+                 main = "Urbanicity vs. Class Size")
+
+# Interaction plot for teacher race vs. Class size
+interaction.plot(new_df$g1trace, new_df$g1classtype, new_df$mean_math1,
+                 cex.lab = 1.2, ylab = "", xlab = "Teacher Ethnicity",
+                 main = "Ethnicity vs. Class Size")
+
+# Interaction plot for teacher degree vs. Class size
+interaction.plot(new_df$g1thighdegree, new_df$g1classtype, new_df$mean_math1,
+                 cex.lab = 1.2, ylab = "", xlab = "Teacher Highest Degree Achieved",
+                 main = "Teacher Degree Achievement vs. Class Size")
+
+# Interaction plot for student economic status vs. Class size
+interaction.plot(new_df$prop_lunch, new_df$g1classtype, new_df$mean_math1,
+                 cex.lab = 1.2, ylab = "Avg. 1st Grade Math Score", xlab = "Proportion of Free Lunch Students",
+                 main = "Student Economic Status vs. Class Size")
+
+# Interaction plot for student ethnicity vs. Class size
+interaction.plot(new_df$prop_white, new_df$g1classtype, new_df$mean_math1,
+                 cex.lab = 1.2, ylab = "", xlab = "Proportion of White Students",
+                 main = "Student Ethnicity vs. Class Size")
+```
+
+\
+
+```{r, echo = FALSE}
+# Run an initial model using all covariates
+mod1 = aov(mean_math1 ~ g1surban + g1trace + g1thighdegree + prop_lunch + prop_white + g1schid + g1classtype, data = new_df)
+mod1_df = as.data.frame(anova(mod1))
+mod1_df = round(mod1_df, 4)
+
+# Run a model without teacher ethnicity, teacher high degree, and student ethnicity, plus pairwise interactions
+mod2 = aov(mean_math1 ~ g1surban*prop_lunch*g1schid*g1classtype, data = new_df)
+mod2_df = as.data.frame(anova(mod2))
+mod2_df = round(mod2_df, 4)
+
+# Run the initial analysis mode
+initial = lm(mean_math1 ~ g1schid + g1classtype, data = new_df)
+initial_df = as.data.frame(anova(initial))
+initial_df = round(initial_df, 4)
+```
+
+```{r, echo = FALSE}
+# Printing the full additive model summary
+kable(mod1_df, caption = "Table A4: Full Additive ANOVA Model Summary", align = "c")
+```
+
+\
+
+```{r, echo = FALSE}
+# Printing the subset interactive model summary
+kable(mod2_df, caption = "Table A5: Subset Interaction ANOVA Model Summary", align = "c")
+```
+
+\
+
+```{r, echo = FALSE}
+# Printing the initial analysis model summary
+kable(initial_df, caption = "Table A6: Initial Analysis ANOVA Model Summary", align = "c")
+```
+
+\
+
+```{r, echo = FALSE}
+# Creating a df comparing Tukey intervals
+modnames = c("Original Imputation Model", "NAs Removed Model")
+om_ti = c(19.64, 0.00, 12.28, 12.75, 12.97)
+rm_ti = c(19.72, 0.00, 12.65, 13.14, 13.36)
+ti_df = as.data.frame(rbind(om_ti, rm_ti))
+names(ti_df) = c("Main Effect F Stat.", "Main Effect P-Value","2-1 Interval Width", "3-1 Interval Width", "3-2 Interval Width")
+rownames(ti_df) = modnames
+
+# Printing the table
+kable(ti_df, caption = "Table A7: Imputation vs. Removal Model Comparison", align = "c")
+```
+
+\
+
+
+# References {-}
+
+1. Achilles, C.M. (2012). CLASS-SIZE POLICY: THE STAR EXPERIMENT AND RELATED CLASS-SIZE STUDIES. *NCPEA POLICY BRIEF*, *1*(2). https://files.eric.ed.gov/fulltext/ED540485.pdf
+
+2. Chen, S. (2024). Chapter 4.1 - One-Way ANOVA [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter4ANOVA.ipynb
+
+3. Chen, S. (2024). Chapter 4.2 - Two-Way ANOVA [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter4ANOVAII.ipynb
+
+4. Chen, S. (2024). Chapter 4.3 - Random and Mixed Effects [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter4ANOVAIII.ipynb
+
+5. Finn, J.D., Boyd-Zaharias, J., Fish, R., & Gerber, S. (2007). Project STAR and Beyond: Database User's Guide.
+
+6. Finn, J.D., Gerber, S.B., & Boyd-Zaharias, J. (2005). Small Classes in the Early Grades, Academic Achievement, and Graduating From High School. *Journal of Educational Psychology*, *97*(2), 214–223. https://doi.org/10.1037/0022-0663.97.2.214
+
+7. Folger, J., & Breda, C. (1989). Evidence from Project STAR about Class Size and Student Achievement. *Peabody Journal of Education*, *67*(1), 17–33. https://www.jstor.org/stable/1492654?saml_data=eyJzYW1sVG9rZW4iOiJjY2MyZWFiYS1mZGE5LTQ0NDYtYWZlNC00NTJkNDJiMGIzMWUiLCJpbnN0aXR1dGlvbklkcyI6WyIwYjE0MzMzZi0yOGRlLTQxZTYtYjBhOC1mNWVhZDk3MjYwYmUiXX0&seq=2
+
+8. Glass, G.V., & Smith, M. L. (1979). Meta-Analysis of Research on Class Size and Achievement. *Educational Evaluation and Policy Analysis*, *1*(1), 2–16. https://doi.org/10.2307/1164099
+
+9. Krueger, A.B. (1999). Experimental Estimates of Education Production Functions. *The Quarterly Journal of Economics*, *114*(2), 497–532. https://doi.org/10.1162/003355399556052
+
+10. Krueger, A.B. (2002, April 1). Economic Considerations and Class Size. *National Bureau of Economic Research*. https://www.nber.org/papers/w8875
+
+11. Pieng, J. (2023). UC Davis STA 206 Week 5 Lecture Notes. Canvas.
+
+\
+
+
+# Session info {-}
+
+
+```{r}
+sessionInfo()
+```
