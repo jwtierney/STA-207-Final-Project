@@ -996,19 +996,23 @@ kable(ti_df, caption = "Table A7: Imputation vs. Removal Model Comparison", alig
 
 4. Chen, S. (2024). Chapter 4.3 - Random and Mixed Effects [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter4ANOVAIII.ipynb
 
-5. Finn, J.D., Boyd-Zaharias, J., Fish, R., & Gerber, S. (2007). Project STAR and Beyond: Database User's Guide.
+5. Chen, S. (2024). Chapter 9 - Causal Inference [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter9Causal.ipynb
 
-6. Finn, J.D., Gerber, S.B., & Boyd-Zaharias, J. (2005). Small Classes in the Early Grades, Academic Achievement, and Graduating From High School. *Journal of Educational Psychology*, *97*(2), 214–223. https://doi.org/10.1037/0022-0663.97.2.214
+6. Chen, S. (2024). Chapter 10 - Experimental Design [Jupyter Notebook]. Canvas. https://nbviewer.org/github/ChenShizhe/StatDataScience/blob/master/Notes/Chapter10Design.ipynb
 
-7. Folger, J., & Breda, C. (1989). Evidence from Project STAR about Class Size and Student Achievement. *Peabody Journal of Education*, *67*(1), 17–33. https://www.jstor.org/stable/1492654?saml_data=eyJzYW1sVG9rZW4iOiJjY2MyZWFiYS1mZGE5LTQ0NDYtYWZlNC00NTJkNDJiMGIzMWUiLCJpbnN0aXR1dGlvbklkcyI6WyIwYjE0MzMzZi0yOGRlLTQxZTYtYjBhOC1mNWVhZDk3MjYwYmUiXX0&seq=2
+7. Finn, J.D., Boyd-Zaharias, J., Fish, R., & Gerber, S. (2007). Project STAR and Beyond: Database User's Guide.
 
-8. Glass, G.V., & Smith, M. L. (1979). Meta-Analysis of Research on Class Size and Achievement. *Educational Evaluation and Policy Analysis*, *1*(1), 2–16. https://doi.org/10.2307/1164099
+8. Finn, J.D., Gerber, S.B., & Boyd-Zaharias, J. (2005). Small Classes in the Early Grades, Academic Achievement, and Graduating From High School. *Journal of Educational Psychology*, *97*(2), 214–223. https://doi.org/10.1037/0022-0663.97.2.214
 
-9. Krueger, A.B. (1999). Experimental Estimates of Education Production Functions. *The Quarterly Journal of Economics*, *114*(2), 497–532. https://doi.org/10.1162/003355399556052
+9. Folger, J., & Breda, C. (1989). Evidence from Project STAR about Class Size and Student Achievement. *Peabody Journal of Education*, *67*(1), 17–33. https://www.jstor.org/stable/1492654?saml_data=eyJzYW1sVG9rZW4iOiJjY2MyZWFiYS1mZGE5LTQ0NDYtYWZlNC00NTJkNDJiMGIzMWUiLCJpbnN0aXR1dGlvbklkcyI6WyIwYjE0MzMzZi0yOGRlLTQxZTYtYjBhOC1mNWVhZDk3MjYwYmUiXX0&seq=2
 
-10. Krueger, A.B. (2002, April 1). Economic Considerations and Class Size. *National Bureau of Economic Research*. https://www.nber.org/papers/w8875
+10. Glass, G.V., & Smith, M. L. (1979). Meta-Analysis of Research on Class Size and Achievement. *Educational Evaluation and Policy Analysis*, *1*(1), 2–16. https://doi.org/10.2307/1164099
 
-11. Pieng, J. (2023). UC Davis STA 206 Week 5 Lecture Notes. Canvas.
+11. Krueger, A.B. (1999). Experimental Estimates of Education Production Functions. *The Quarterly Journal of Economics*, *114*(2), 497–532. https://doi.org/10.1162/003355399556052
+
+12. Krueger, A.B. (2002, April 1). Economic Considerations and Class Size. *National Bureau of Economic Research*. https://www.nber.org/papers/w8875
+
+13. Pieng, J. (2023). UC Davis STA 206 Week 5 Lecture Notes. Canvas.
 
 \
 
